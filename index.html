@@ -91,6 +91,14 @@
     <input type="text" id="line2" value="混色筷子">
     <label class="f">顯示印章 logo</label>
     <select id="showLogo"><option value="1" selected>顯示</option><option value="0">不顯示</option></select>
+    <label class="f">字體粗細</label>
+    <select id="fontWeight">
+      <option value="300">細</option>
+      <option value="400">一般</option>
+      <option value="500">中等</option>
+      <option value="700" selected>粗(預設)</option>
+      <option value="900">特粗</option>
+    </select>
   </div>
 
   <div class="card">
@@ -239,6 +247,7 @@ function render(){
   const showLogo = $("showLogo").value === "1";
   const price = "$" + $("price").value.trim();
   const line2 = $("line2").value.trim();
+  const fw = $("fontWeight").value || "700";
 
   ctx.textAlign="center"; ctx.textBaseline="middle";
   if(showLogo && logoReady && H > W){
@@ -246,8 +255,8 @@ function render(){
     const lg = Math.min(Math.round((divY-top)*0.52), Math.round((right-left)*0.52));
     ctx.drawImage(logoImg, Math.round((W-lg)/2), top+10, lg, lg);
     const py0 = top + 10 + lg + 4;
-    const ps = fitFont(price, right-left-16, divY-py0-6, "bold");
-    ctx.font = `bold ${ps}px -apple-system,'PingFang TC','Noto Sans TC',sans-serif`;
+    const ps = fitFont(price, right-left-16, divY-py0-6, fw);
+    ctx.font = `${fw} ${ps}px -apple-system,'PingFang TC','Noto Sans TC',sans-serif`;
     ctx.fillText(price, W/2, py0 + (divY-py0)/2 + 1);
   }else{
     /* 橫式標籤(如 30×20):logo 在左、價格在右 */
@@ -259,17 +268,17 @@ function render(){
       priceX0 = left + 7 + lg + 6;
     }
     const pw = priceX1 - priceX0;
-    const ps = fitFont(price, pw, divY-top-12, "bold");
-    ctx.font = `bold ${ps}px -apple-system,'PingFang TC','Noto Sans TC',sans-serif`;
+    const ps = fitFont(price, pw, divY-top-12, fw);
+    ctx.font = `${fw} ${ps}px -apple-system,'PingFang TC','Noto Sans TC',sans-serif`;
     ctx.fillText(price, priceX0 + pw/2, top + (divY-top)/2 + 2);
   }
   /* 下方品名 */
   const nameCap = H > W ? 72 : 46;
-  const ls = fitFont(line2, right-left-20, Math.min(nameCap, bot-divY-10), "bold");
-  ctx.font = `bold ${ls}px -apple-system,'PingFang TC','Noto Sans TC',sans-serif`;
+  const ls = fitFont(line2, right-left-20, Math.min(nameCap, bot-divY-10), fw);
+  ctx.font = `${fw} ${ls}px -apple-system,'PingFang TC','Noto Sans TC',sans-serif`;
   ctx.fillText(line2, W/2, divY + (bot-divY)/2 + 1);
 }
-["price","line2","showLogo","marginmm"].forEach(id => $(id).addEventListener("input", render));
+["price","line2","showLogo","fontWeight","marginmm"].forEach(id => $(id).addEventListener("input", render));
 
 /* 預設模板按鈕 */
 const presetsEl = $("presets");
