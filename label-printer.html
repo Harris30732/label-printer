@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>竹木造咖 標籤列印</title>
+<style>
+  :root{
+    --blue:#1a56db; --blue-dark:#1240a8; --bg:#f1f3f7; --card:#ffffff;
+    --ink:#1c2330; --muted:#6b7280; --ok:#0e9f6e; --err:#d64545; --line:#e4e7ee;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  body{margin:0; font-family:-apple-system,"PingFang TC","Noto Sans TC",sans-serif; background:var(--bg); color:var(--ink);}
+  header{background:var(--blue); color:#fff; padding:14px 16px; position:sticky; top:0; z-index:5;}
+  header h1{margin:0; font-size:18px; font-weight:700;}
+  header .sub{font-size:12px; opacity:.85; margin-top:2px;}
+  main{max-width:520px; margin:0 auto; padding:12px 12px 40px;}
+  .card{background:var(--card); border-radius:14px; padding:14px; margin-top:12px; box-shadow:0 1px 3px rgba(16,24,40,.07);}
+  .card h2{margin:0 0 10px; font-size:14px; color:var(--muted); font-weight:700; letter-spacing:.05em;}
+  button{font-family:inherit; border:none; border-radius:10px; cursor:pointer; font-size:16px;}
+  .btn-primary{background:var(--blue); color:#fff; width:100%; padding:14px; font-weight:700;}
+  .btn-primary:active{background:var(--blue-dark);}
+  .btn-primary:disabled{background:#aab6d3;}
+  .btn-ghost{background:#eef1f8; color:var(--blue); padding:10px 14px; font-weight:600; font-size:14px;}
+  .btn-danger{background:#fdecec; color:var(--err); padding:10px 14px; font-weight:600; font-size:14px;}
+  .row{display:flex; gap:8px; align-items:center;}
+  .status{display:flex; align-items:center; gap:8px; margin-top:10px; font-size:14px;}
+  .dot{width:10px; height:10px; border-radius:50%; background:#c3c9d6; flex:none;}
+  .dot.on{background:var(--ok);}
+  .dot.busy{background:#f0a020;}
+  label.f{display:block; font-size:13px; color:var(--muted); margin:10px 0 4px; font-weight:600;}
+  input[type=text], input[type=number], select{
+    width:100%; padding:11px 12px; font-size:16px; border:1.5px solid var(--line);
+    border-radius:10px; background:#fff; color:var(--ink); font-family:inherit;
+  }
+  input:focus, select:focus{outline:none; border-color:var(--blue);}
+  .presets{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:4px;}
+  .chip{background:#eef1f8; border:1.5px solid transparent; color:var(--ink); border-radius:999px; padding:8px 14px; font-size:14px; font-weight:600;}
+  .chip.sel{border-color:var(--blue); color:var(--blue); background:#e8eefc;}
+  .preview-wrap{display:flex; justify-content:center; padding:10px; background:#f7f8fb; border-radius:10px;}
+  #preview{width:300px; height:200px; image-rendering:pixelated; background:#fff; box-shadow:0 0 0 1px var(--line);}
+  .copies-row{display:flex; align-items:center; gap:10px; margin-top:10px;}
+  .copies-row button{width:44px; height:44px; font-size:22px; background:#eef1f8; color:var(--blue); font-weight:700;}
+  .copies-row input{text-align:center; width:70px;}
+  details{margin-top:12px;}
+  summary{font-size:14px; color:var(--muted); font-weight:600; padding:6px 0; cursor:pointer;}
+  .grid2{display:grid; grid-template-columns:1fr 1fr; gap:8px;}
+  #log{font-family:ui-monospace,Menlo,monospace; font-size:11px; background:#101623; color:#9fd39f;
+       border-radius:10px; padding:10px; height:150px; overflow-y:auto; white-space:pre-wrap; word-break:break-all;}
+  .hint{font-size:12px; color:var(--muted); line-height:1.6; margin-top:8px;}
+  .warn{background:#fff7e8; border:1px solid #f3ddb0; color:#8a6116; border-radius:10px; padding:10px 12px; font-size:13px; line-height:1.6; margin-top:12px;}
+</style>
+</head>
+<body>
+<header>
+  <h1>竹木造咖 標籤列印</h1>
+  <div class="sub">XP-420B 藍牙直印 · 30×20mm</div>
+</header>
+<main>
+
+  <div id="unsupported" class="warn" style="display:none">
+    ⚠️ 這個瀏覽器不支援網頁藍牙(Web Bluetooth)。<br>
+    <b>iPhone</b>:請到 App Store 安裝免費的「<b>Bluefy – Web BLE Browser</b>」,再用它開啟本頁。<br>
+    <b>Android</b>:請使用 <b>Chrome</b> 開啟本頁。
+  </div>
+
+  <div class="card">
+    <h2>1 · 印表機連線</h2>
+    <button id="btnConnect" class="btn-primary">🔗 搜尋並連接印表機</button>
+    <div class="status"><div id="dot" class="dot"></div><span id="statusText">尚未連線</span></div>
+    <div id="chWrap" style="display:none">
+      <label class="f">傳輸通道(自動選好,列印失敗時可換一個試)</label>
+      <select id="chSelect"></select>
+      <div class="row" style="margin-top:10px">
+        <button id="btnDisconnect" class="btn-danger">斷線</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>2 · 標籤內容</h2>
+    <div class="presets" id="presets"></div>
+    <label class="f">價格(顯示為 $ + 數字)</label>
+    <input type="text" id="price" value="450" inputmode="numeric">
+    <label class="f">下方文字</label>
+    <input type="text" id="line2" value="Made in Taiwan">
+    <label class="f">顯示印章 logo</label>
+    <select id="showLogo"><option value="1" selected>顯示</option><option value="0">不顯示</option></select>
+  </div>
+
+  <div class="card">
+    <h2>3 · 預覽(實際列印樣式)</h2>
+    <div class="preview-wrap"><canvas id="preview" width="240" height="160"></canvas></div>
+    <div class="copies-row">
+      <span style="font-size:14px;color:var(--muted);font-weight:600">份數</span>
+      <button id="minus">−</button>
+      <input type="number" id="copies" value="1" min="1" max="99" inputmode="numeric">
+      <button id="plus">+</button>
+    </div>
+    <button id="btnPrint" class="btn-primary" style="margin-top:12px" disabled>🖨️ 列印</button>
+  </div>
+
+  <details class="card">
+    <summary>進階設定與診斷</summary>
+    <div class="grid2">
+      <div><label class="f">濃度 (1–15)</label><input type="number" id="density" value="8" min="1" max="15"></div>
+      <div><label class="f">列印方向</label><select id="direction"><option value="1" selected>正向 (1)</option><option value="0">反向 (0)</option></select></div>
+      <div><label class="f">間隙 GAP (mm)</label><input type="number" id="gapmm" value="2" min="0" max="10"></div>
+      <div><label class="f">BLE 每包位元組</label><input type="number" id="chunk" value="120" min="20" max="500"></div>
+      <div><label class="f">每包間隔 (ms)</label><input type="number" id="delay" value="20" min="0" max="200"></div>
+      <div><label class="f">黑白門檻 (0–255)</label><input type="number" id="thresh" value="160" min="50" max="230"></div>
+    </div>
+    <label class="f">傳送紀錄</label>
+    <div id="log"></div>
+  </details>
+
+  <div class="hint">
+    📱 <b>iPhone</b>:用 Bluefy 瀏覽器開啟本頁 → 按「搜尋並連接印表機」→ 選 XP-420B。<br>
+    🤖 <b>Android</b>:用 Chrome 開啟本頁,步驟相同。<br>
+    連線前請先確認印表機電源開啟,且手機藍牙已開。若原本的 XPBarcode App 還連著印表機,請先把該 App 完全關閉,以免佔住藍牙。
+  </div>
+</main>
+
+<script>
+"use strict";
+/* ================= 基本設定 ================= */
+const DPI = 203, DOTS_PER_MM = 8;
+const LABEL_W_MM = 30, LABEL_H_MM = 20;
+const W = LABEL_W_MM * DOTS_PER_MM;   // 240
+const H = LABEL_H_MM * DOTS_PER_MM;   // 160
+const LOGO_B64 = "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";
+
+const PRESETS = [
+  { name:"混色筷子 450", price:"450", line2:"Made in Taiwan" },
+  { name:"桂馠木筷 230", price:"230", line2:"木筷五入組" },
+];
+
+/* 常見標籤機 BLE 服務(Xprinter / 匯坤 / ISSC / Microchip 等) */
+const OPTIONAL_SERVICES = [
+  0xff00, 0xffe0, 0xff80, 0xfee7, 0xff10, 0x18f0,
+  "49535343-fe7d-4ae5-8fa9-9fafd205e455",
+  "e7810a71-73ae-499d-8c15-faa9aef0c3f2",
+  "0000ff00-0000-1000-8000-00805f9b34fb",
+];
+/* 已知的寫入特徵值優先順序 */
+const PREFERRED_WRITE = [
+  "0000ff02-0000-1000-8000-00805f9b34fb",
+  "0000ffe1-0000-1000-8000-00805f9b34fb",
+  "49535343-8841-43f4-a8d4-ecbe34729bb3",
+  "bef8d6c9-9c21-4c9e-b632-bd58c1009f9f",
+  "00002af1-0000-1000-8000-00805f9b34fb",
+];
+
+/* ================= 狀態 ================= */
+let device=null, writeChars=[], activeChar=null, printing=false;
+const $ = id => document.getElementById(id);
+const logBox = $("log");
+function log(msg){
+  const t = new Date().toTimeString().slice(0,8);
+  logBox.textContent += `[${t}] ${msg}\n`;
+  logBox.scrollTop = logBox.scrollHeight;
+}
+function setStatus(text, cls){
+  $("statusText").textContent = text;
+  $("dot").className = "dot" + (cls ? " "+cls : "");
+}
+
+/* ================= 預覽渲染 ================= */
+const canvas = $("preview"), ctx = canvas.getContext("2d");
+const logoImg = new Image();
+let logoReady = false;
+logoImg.onload = () => { logoReady = true; render(); };
+logoImg.src = "data:image/png;base64," + LOGO_B64;
+
+function fitFont(text, maxW, maxH, weight){
+  let size = maxH;
+  while(size > 8){
+    ctx.font = `${weight} ${size}px -apple-system,'PingFang TC','Noto Sans TC',sans-serif`;
+    if(ctx.measureText(text).width <= maxW) break;
+    size -= 2;
+  }
+  return size;
+}
+function roundRect(x,y,w,h,r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);
+  ctx.arcTo(x+w,y,x+w,y+h,r);
+  ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r);
+  ctx.arcTo(x,y,x+w,y,r);
+  ctx.closePath();
+}
+function render(){
+  ctx.fillStyle="#fff"; ctx.fillRect(0,0,W,H);
+  ctx.strokeStyle="#000"; ctx.fillStyle="#000";
+  ctx.lineWidth=3;
+  roundRect(3,3,W-6,H-6,14); ctx.stroke();
+  const divY = 96;
+  ctx.beginPath(); ctx.moveTo(4,divY); ctx.lineTo(W-4,divY); ctx.stroke();
+
+  const showLogo = $("showLogo").value === "1";
+  const price = "$" + $("price").value.trim();
+  const line2 = $("line2").value.trim();
+
+  let priceX0 = 10, priceX1 = W-12;
+  if(showLogo && logoReady){
+    ctx.drawImage(logoImg, 10, 12, 74, 74);
+    priceX0 = 90;
+  }
+  /* 價格 */
+  const pw = priceX1 - priceX0;
+  const ps = fitFont(price, pw, 78, "bold");
+  ctx.font = `bold ${ps}px -apple-system,'PingFang TC','Noto Sans TC',sans-serif`;
+  ctx.textAlign="center"; ctx.textBaseline="middle";
+  ctx.fillText(price, priceX0 + pw/2, 6 + divY/2);
+  /* 下方文字 */
+  const ls = fitFont(line2, W-24, 50, "bold");
+  ctx.font = `bold ${ls}px -apple-system,'PingFang TC','Noto Sans TC',sans-serif`;
+  ctx.fillText(line2, W/2, divY + (H-divY)/2 + 1);
+}
+["price","line2","showLogo"].forEach(id => $(id).addEventListener("input", render));
+
+/* 預設模板按鈕 */
+const presetsEl = $("presets");
+PRESETS.forEach((p,i) => {
+  const b = document.createElement("button");
+  b.className = "chip" + (i===0 ? " sel" : "");
+  b.textContent = p.name;
+  b.onclick = () => {
+    document.querySelectorAll(".chip").forEach(c=>c.classList.remove("sel"));
+    b.classList.add("sel");
+    $("price").value = p.price; $("line2").value = p.line2;
+    render();
+  };
+  presetsEl.appendChild(b);
+});
+
+/* 份數 */
+$("minus").onclick = () => { const c=$("copies"); c.value = Math.max(1, +c.value-1); };
+$("plus").onclick  = () => { const c=$("copies"); c.value = Math.min(99, +c.value+1); };
+
+/* ================= 藍牙 ================= */
+async function connect(){
+  try{
+    setStatus("搜尋中…","busy");
+    device = await navigator.bluetooth.requestDevice({
+      acceptAllDevices:true,
+      optionalServices: OPTIONAL_SERVICES
+    });
+    log("選擇裝置: " + (device.name || device.id));
+    device.addEventListener("gattserverdisconnected", () => {
+      setStatus("已斷線"); $("btnPrint").disabled = true;
+      $("chWrap").style.display = "none";
+      log("裝置已斷線");
+    });
+    setStatus("連線中…","busy");
+    const server = await device.gatt.connect();
+    log("GATT 已連線,列舉服務…");
+    const services = await server.getPrimaryServices();
+    writeChars = [];
+    for(const s of services){
+      let chars = [];
+      try{ chars = await s.getCharacteristics(); }catch(e){ continue; }
+      for(const c of chars){
+        const p = c.properties;
+        log(`服務 ${s.uuid.slice(4,8)} 特徵 ${c.uuid.slice(4,8)} ` +
+            `[${p.write?"W":""}${p.writeWithoutResponse?"w":""}${p.notify?"N":""}${p.read?"R":""}]`);
+        if(p.write || p.writeWithoutResponse) writeChars.push(c);
+      }
+    }
+    if(!writeChars.length){
+      setStatus("找不到可寫入的通道");
+      log("⚠️ 此裝置沒有可寫入的 BLE 特徵值。這台印表機的藍牙可能是傳統 SPP 模式,網頁無法直連,請告訴我紀錄內容。");
+      return;
+    }
+    /* 依已知清單排序 */
+    writeChars.sort((a,b) => {
+      const ia = PREFERRED_WRITE.indexOf(a.uuid), ib = PREFERRED_WRITE.indexOf(b.uuid);
+      return (ia<0?99:ia) - (ib<0?99:ib);
+    });
+    const sel = $("chSelect"); sel.innerHTML = "";
+    writeChars.forEach((c,i) => {
+      const o = document.createElement("option");
+      o.value = i;
+      o.textContent = `${c.uuid.slice(4,8)} (${c.properties.writeWithoutResponse?"快速":"標準"})`;
+      sel.appendChild(o);
+    });
+    sel.onchange = () => { activeChar = writeChars[+sel.value]; log("切換通道 → " + activeChar.uuid.slice(4,8)); };
+    activeChar = writeChars[0];
+    $("chWrap").style.display = "block";
+    setStatus(`已連線:${device.name || "印表機"}`,"on");
+    $("btnPrint").disabled = false;
+    log("✅ 使用通道 " + activeChar.uuid.slice(4,8));
+  }catch(e){
+    setStatus("尚未連線");
+    log("連線失敗/取消: " + e.message);
+  }
+}
+$("btnConnect").onclick = connect;
+$("btnDisconnect").onclick = () => { if(device?.gatt?.connected) device.gatt.disconnect(); };
+
+async function sendBytes(bytes){
+  const chunk = Math.max(20, +$("chunk").value || 120);
+  const delay = Math.max(0, +$("delay").value || 0);
+  const useNoResp = activeChar.properties.writeWithoutResponse;
+  for(let i=0; i<bytes.length; i+=chunk){
+    const part = bytes.slice(i, i+chunk);
+    if(useNoResp) await activeChar.writeValueWithoutResponse(part);
+    else await activeChar.writeValue(part);
+    if(delay) await new Promise(r=>setTimeout(r,delay));
+  }
+}
+
+/* ================= TSPL 產生 ================= */
+function canvasToTsplBitmap(threshold){
+  const img = ctx.getImageData(0,0,W,H).data;
+  const wBytes = W/8;
+  const buf = new Uint8Array(wBytes*H).fill(0xFF); /* TSPL: bit=0 → 印黑點 */
+  for(let y=0; y<H; y++){
+    for(let x=0; x<W; x++){
+      const i = (y*W+x)*4;
+      const lum = 0.299*img[i] + 0.587*img[i+1] + 0.114*img[i+2];
+      if(lum < threshold) buf[y*wBytes + (x>>3)] &= ~(0x80 >> (x&7));
+    }
+  }
+  return buf;
+}
+function buildTspl(copies){
+  const enc = new TextEncoder();
+  const density = Math.min(15, Math.max(1, +$("density").value||8));
+  const gap = Math.max(0, +$("gapmm").value||2);
+  const dir = $("direction").value;
+  const bmp = canvasToTsplBitmap(+$("thresh").value||160);
+  const head = enc.encode(
+    `SIZE ${LABEL_W_MM} mm,${LABEL_H_MM} mm\r\n` +
+    `GAP ${gap} mm,0 mm\r\n` +
+    `DIRECTION ${dir}\r\n` +
+    `REFERENCE 0,0\r\n` +
+    `DENSITY ${density}\r\n` +
+    `CLS\r\n` +
+    `BITMAP 0,0,${W/8},${H},0,`
+  );
+  const tail = enc.encode(`\r\nPRINT 1,${copies}\r\n`);
+  const out = new Uint8Array(head.length + bmp.length + tail.length);
+  out.set(head,0); out.set(bmp,head.length); out.set(tail,head.length+bmp.length);
+  return out;
+}
+
+$("btnPrint").onclick = async () => {
+  if(printing || !activeChar) return;
+  if(!device?.gatt?.connected){ log("尚未連線"); return; }
+  printing = true;
+  const btn = $("btnPrint");
+  btn.disabled = true; btn.textContent = "傳送中…";
+  try{
+    render(); /* 確保預覽為最新 */
+    const copies = Math.min(99, Math.max(1, +$("copies").value||1));
+    const data = buildTspl(copies);
+    log(`開始傳送 ${data.length} bytes(${copies} 份)…`);
+    const t0 = performance.now();
+    await sendBytes(data);
+    log(`✅ 傳送完成,耗時 ${((performance.now()-t0)/1000).toFixed(1)} 秒`);
+  }catch(e){
+    log("❌ 列印失敗: " + e.message + "(可到進階設定調小每包位元組、加大間隔,或換傳輸通道)");
+  }finally{
+    printing = false;
+    btn.disabled = false; btn.textContent = "🖨️ 列印";
+  }
+};
+
+/* ================= 環境檢查 ================= */
+if(!navigator.bluetooth){
+  $("unsupported").style.display = "block";
+  $("btnConnect").disabled = true;
+  setStatus("此瀏覽器不支援藍牙");
+}
+render();
+</script>
+</body>
+</html>
