@@ -84,7 +84,16 @@
       <option value="30x20" selected>30×20mm(黑色機台)</option>
       <option value="30x40">30×40mm(白色機台)</option>
     </select>
-    <div class="presets" id="presets" style="margin-top:10px"></div>
+    <label class="f">設定檔(點選套用,★ 為開頁自動載入的預設)</label>
+    <div class="presets" id="profileChips"></div>
+    <div class="row" style="margin-top:8px">
+      <input type="text" id="profileName" placeholder="設定檔名稱" style="width:auto;flex:1">
+      <button id="btnSaveProfile" class="btn-ghost">儲存</button>
+    </div>
+    <div class="row" style="margin-top:8px">
+      <button id="btnDefaultProfile" class="btn-ghost">設為預設</button>
+      <button id="btnDeleteProfile" class="btn-danger">刪除</button>
+    </div>
     <label class="f">價格(顯示為 $ + 數字)</label>
     <input type="text" id="price" value="450" inputmode="numeric">
     <label class="f">品名</label>
@@ -150,10 +159,17 @@ let W = LABEL_W_MM * DOTS_PER_MM;   // 240
 let H = LABEL_H_MM * DOTS_PER_MM;   // 160
 const LOGO_B64 = "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";
 
-const PRESETS = [
-  { name:"混色筷子 450", price:"450", line2:"混色筷子" },
-  { name:"桂馠木筷 230", price:"230", line2:"桂馠木筷" },
-];
+/* 設定檔:儲存在瀏覽器本機(localStorage),可存多組並指定一組為預設 */
+const PROFILE_KEY = "zmzk_profiles_v1";
+const SETTING_IDS = ["sizeSelect","price","line2","showLogo","fontWeight",
+                     "density","direction","gapmm","marginmm","chunk","delay","thresh"];
+const SEED_PROFILES = {
+  profiles: [
+    { name:"混色筷子 450", settings:{ sizeSelect:"30x20", price:"450", line2:"混色筷子" } },
+    { name:"桂馠木筷 230", settings:{ sizeSelect:"30x20", price:"230", line2:"桂馠木筷" } },
+  ],
+  defaultName: "混色筷子 450",
+};
 
 /* 常見標籤機 BLE 服務(Xprinter / 匯坤 / ISSC / Microchip 等)
    一律使用完整 128-bit 小寫字串:Bluefy 對數字縮寫 UUID 支援不完整 */
@@ -280,20 +296,87 @@ function render(){
 }
 ["price","line2","showLogo","fontWeight","marginmm"].forEach(id => $(id).addEventListener("input", render));
 
-/* 預設模板按鈕 */
-const presetsEl = $("presets");
-PRESETS.forEach((p,i) => {
-  const b = document.createElement("button");
-  b.className = "chip" + (i===0 ? " sel" : "");
-  b.textContent = p.name;
-  b.onclick = () => {
-    document.querySelectorAll(".chip").forEach(c=>c.classList.remove("sel"));
-    b.classList.add("sel");
-    $("price").value = p.price; $("line2").value = p.line2;
-    render();
-  };
-  presetsEl.appendChild(b);
-});
+/* ================= 設定檔 ================= */
+function loadStore(){
+  try{
+    const s = JSON.parse(localStorage.getItem(PROFILE_KEY));
+    if(s && Array.isArray(s.profiles)) return s;
+  }catch(e){}
+  return JSON.parse(JSON.stringify(SEED_PROFILES));
+}
+let store = loadStore();
+let selectedProfile = null;
+function saveStore(){
+  try{ localStorage.setItem(PROFILE_KEY, JSON.stringify(store)); }
+  catch(e){ log("⚠️ 設定檔儲存失敗: " + errText(e)); }
+}
+function currentSettings(){
+  const o = {};
+  SETTING_IDS.forEach(id => o[id] = $(id).value);
+  return o;
+}
+function applySettings(s){
+  SETTING_IDS.forEach(id => { if(s[id] != null) $(id).value = s[id]; });
+  const parts = ($("sizeSelect").value || "30x20").split("x").map(Number);
+  setLabelSize(parts[0], parts[1]);  /* 內含 render() */
+}
+function renderProfiles(){
+  const el = $("profileChips"); el.innerHTML = "";
+  if(!store.profiles.length){
+    const hint = document.createElement("span");
+    hint.className = "hint"; hint.style.margin = "0";
+    hint.textContent = "尚無設定檔,調好設定後輸入名稱按「儲存」";
+    el.appendChild(hint);
+    return;
+  }
+  store.profiles.forEach(p => {
+    const b = document.createElement("button");
+    b.className = "chip" + (p.name === selectedProfile ? " sel" : "");
+    b.textContent = (p.name === store.defaultName ? "★ " : "") + p.name;
+    b.onclick = () => {
+      selectedProfile = p.name;
+      $("profileName").value = p.name;
+      applySettings(p.settings);
+      renderProfiles();
+    };
+    el.appendChild(b);
+  });
+}
+$("btnSaveProfile").onclick = () => {
+  const name = $("profileName").value.trim();
+  if(!name){ alert("請先輸入設定檔名稱"); return; }
+  const existing = store.profiles.find(p => p.name === name);
+  if(existing) existing.settings = currentSettings();
+  else store.profiles.push({ name, settings: currentSettings() });
+  selectedProfile = name;
+  saveStore(); renderProfiles();
+};
+$("btnDefaultProfile").onclick = () => {
+  const name = $("profileName").value.trim() || selectedProfile;
+  if(!name || !store.profiles.find(p => p.name === name)){
+    alert("請先選擇或儲存一個設定檔"); return;
+  }
+  store.defaultName = name;
+  saveStore(); renderProfiles();
+};
+$("btnDeleteProfile").onclick = () => {
+  const name = selectedProfile || $("profileName").value.trim();
+  const i = store.profiles.findIndex(p => p.name === name);
+  if(i < 0){ alert("請先選擇要刪除的設定檔"); return; }
+  if(!confirm("刪除設定檔「" + name + "」?")) return;
+  store.profiles.splice(i, 1);
+  if(store.defaultName === name) store.defaultName = null;
+  selectedProfile = null; $("profileName").value = "";
+  saveStore(); renderProfiles();
+};
+/* 開頁自動載入預設設定檔 */
+const defProfile = store.profiles.find(p => p.name === store.defaultName);
+if(defProfile){
+  selectedProfile = defProfile.name;
+  $("profileName").value = defProfile.name;
+  applySettings(defProfile.settings);
+}
+renderProfiles();
 
 /* 份數 */
 $("minus").onclick = () => { const c=$("copies"); c.value = Math.max(1, +c.value-1); };
