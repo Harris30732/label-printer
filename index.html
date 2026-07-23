@@ -106,6 +106,7 @@
       <div><label class="f">濃度 (1–15)</label><input type="number" id="density" value="8" min="1" max="15"></div>
       <div><label class="f">列印方向</label><select id="direction"><option value="1" selected>正向 (1)</option><option value="0">反向 (0)</option></select></div>
       <div><label class="f">間隙 GAP (mm)</label><input type="number" id="gapmm" value="2" min="0" max="10"></div>
+      <div><label class="f">安全邊界 (mm)</label><input type="number" id="marginmm" value="1.5" min="0" max="3" step="0.5"></div>
       <div><label class="f">BLE 每包位元組</label><input type="number" id="chunk" value="120" min="20" max="500"></div>
       <div><label class="f">每包間隔 (ms)</label><input type="number" id="delay" value="20" min="0" max="200"></div>
       <div><label class="f">黑白門檻 (0–255)</label><input type="number" id="thresh" value="160" min="50" max="230"></div>
@@ -196,34 +197,39 @@ function roundRect(x,y,w,h,r){
   ctx.closePath();
 }
 function render(){
+  /* 安全邊界:整個版面往內縮,吸收印表機進紙的機械誤差,避免跑邊 */
+  const mm = Math.min(3, Math.max(0, +($("marginmm") ? $("marginmm").value : 1.5) || 0));
+  const M = Math.round(mm * DOTS_PER_MM);
   ctx.fillStyle="#fff"; ctx.fillRect(0,0,W,H);
   ctx.strokeStyle="#000"; ctx.fillStyle="#000";
   ctx.lineWidth=3;
-  roundRect(3,3,W-6,H-6,14); ctx.stroke();
-  const divY = 96;
-  ctx.beginPath(); ctx.moveTo(4,divY); ctx.lineTo(W-4,divY); ctx.stroke();
+  const left = M+2, top = M+2, right = W-M-2, bot = H-M-2;
+  roundRect(left, top, right-left, bot-top, 12); ctx.stroke();
+  const divY = Math.round(top + (bot-top)*0.6);
+  ctx.beginPath(); ctx.moveTo(left+1,divY); ctx.lineTo(right-1,divY); ctx.stroke();
 
   const showLogo = $("showLogo").value === "1";
   const price = "$" + $("price").value.trim();
   const line2 = $("line2").value.trim();
 
-  let priceX0 = 10, priceX1 = W-12;
+  let priceX0 = left+8, priceX1 = right-10;
   if(showLogo && logoReady){
-    ctx.drawImage(logoImg, 10, 12, 74, 74);
-    priceX0 = 90;
+    const lg = divY - top - 14;
+    ctx.drawImage(logoImg, left+7, top+7, lg, lg);
+    priceX0 = left + 7 + lg + 6;
   }
   /* 價格 */
   const pw = priceX1 - priceX0;
-  const ps = fitFont(price, pw, 78, "bold");
+  const ps = fitFont(price, pw, divY-top-12, "bold");
   ctx.font = `bold ${ps}px -apple-system,'PingFang TC','Noto Sans TC',sans-serif`;
   ctx.textAlign="center"; ctx.textBaseline="middle";
-  ctx.fillText(price, priceX0 + pw/2, 6 + divY/2);
+  ctx.fillText(price, priceX0 + pw/2, top + (divY-top)/2 + 2);
   /* 下方文字 */
-  const ls = fitFont(line2, W-24, 50, "bold");
+  const ls = fitFont(line2, right-left-20, Math.min(46, bot-divY-10), "bold");
   ctx.font = `bold ${ls}px -apple-system,'PingFang TC','Noto Sans TC',sans-serif`;
-  ctx.fillText(line2, W/2, divY + (H-divY)/2 + 1);
+  ctx.fillText(line2, W/2, divY + (bot-divY)/2 + 1);
 }
-["price","line2","showLogo"].forEach(id => $(id).addEventListener("input", render));
+["price","line2","showLogo","marginmm"].forEach(id => $(id).addEventListener("input", render));
 
 /* 預設模板按鈕 */
 const presetsEl = $("presets");
