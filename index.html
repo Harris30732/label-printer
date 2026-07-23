@@ -54,7 +54,7 @@
 <body>
 <header>
   <h1>竹木造咖 標籤列印</h1>
-  <div class="sub">XP-420B 藍牙直印 · 30×20mm</div>
+  <div class="sub" id="subTitle">XP-420B 藍牙直印 · 30×20mm</div>
 </header>
 <main>
 
@@ -79,7 +79,12 @@
 
   <div class="card">
     <h2>2 · 標籤內容</h2>
-    <div class="presets" id="presets"></div>
+    <label class="f">標籤規格(連線時依機台自動切換,也可手動選)</label>
+    <select id="sizeSelect">
+      <option value="30x20" selected>30×20mm(黑色機台)</option>
+      <option value="30x40">30×40mm(白色機台)</option>
+    </select>
+    <div class="presets" id="presets" style="margin-top:10px"></div>
     <label class="f">價格(顯示為 $ + 數字)</label>
     <input type="text" id="price" value="450" inputmode="numeric">
     <label class="f">品名</label>
@@ -116,7 +121,8 @@
   </details>
 
   <div class="hint">
-    📱 <b>iPhone</b>:用 Bluefy 瀏覽器開啟本頁 → 按「搜尋並連接印表機」→ 選 XP-420B(名稱後面帶 -W、-B 等字樣都正常,直接選即可)。<br>
+    📱 <b>iPhone</b>:用 Bluefy 瀏覽器開啟本頁 → 按「搜尋並連接印表機」→ 選 XP-420B。<br>
+    🖨️ 兩台機台:<b>XP-420B-B</b> 黑色機台(30×20mm)、<b>XP-420B-W</b> 白色機台(30×40mm),連上後標籤規格會自動切換,也可在「標籤規格」下拉選單手動選。<br>
     🤖 <b>Android</b>:用 Chrome 開啟本頁,步驟相同。<br>
     連線前請先確認印表機電源開啟,且手機藍牙已開。若原本的 XPBarcode App 還連著印表機,請先把該 App 完全關閉,以免佔住藍牙。
   </div>
@@ -126,9 +132,14 @@
 "use strict";
 /* ================= 基本設定 ================= */
 const DPI = 203, DOTS_PER_MM = 8;
-const LABEL_W_MM = 30, LABEL_H_MM = 20;
-const W = LABEL_W_MM * DOTS_PER_MM;   // 240
-const H = LABEL_H_MM * DOTS_PER_MM;   // 160
+/* 兩台機規格:黑色機台 30×20,白色機台 30×40。連線時依裝置名稱自動切換 */
+const PRINTER_FORMATS = [
+  { match:"-B", w:30, h:20, name:"黑色機台" },
+  { match:"-W", w:30, h:40, name:"白色機台" },
+];
+let LABEL_W_MM = 30, LABEL_H_MM = 20;
+let W = LABEL_W_MM * DOTS_PER_MM;   // 240
+let H = LABEL_H_MM * DOTS_PER_MM;   // 160
 const LOGO_B64 = "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";
 
 const PRESETS = [
@@ -173,6 +184,23 @@ function setStatus(text, cls){
 
 /* ================= 預覽渲染 ================= */
 const canvas = $("preview"), ctx = canvas.getContext("2d");
+
+function setLabelSize(wmm, hmm, why){
+  LABEL_W_MM = wmm; LABEL_H_MM = hmm;
+  W = wmm * DOTS_PER_MM; H = hmm * DOTS_PER_MM;
+  canvas.width = W; canvas.height = H;
+  canvas.style.width = "300px";
+  canvas.style.height = Math.round(300 * H / W) + "px";
+  $("sizeSelect").value = wmm + "x" + hmm;
+  $("subTitle").textContent = `XP-420B 藍牙直印 · ${wmm}×${hmm}mm`;
+  if(why) log(why);
+  render();
+}
+$("sizeSelect").addEventListener("change", () => {
+  const [wmm, hmm] = $("sizeSelect").value.split("x").map(Number);
+  setLabelSize(wmm, hmm);
+});
+
 const logoImg = new Image();
 let logoReady = false;
 logoImg.onload = () => { logoReady = true; render(); };
@@ -212,20 +240,32 @@ function render(){
   const price = "$" + $("price").value.trim();
   const line2 = $("line2").value.trim();
 
-  let priceX0 = left+8, priceX1 = right-10;
-  if(showLogo && logoReady){
-    const lg = divY - top - 14;
-    ctx.drawImage(logoImg, left+7, top+7, lg, lg);
-    priceX0 = left + 7 + lg + 6;
-  }
-  /* 價格 */
-  const pw = priceX1 - priceX0;
-  const ps = fitFont(price, pw, divY-top-12, "bold");
-  ctx.font = `bold ${ps}px -apple-system,'PingFang TC','Noto Sans TC',sans-serif`;
   ctx.textAlign="center"; ctx.textBaseline="middle";
-  ctx.fillText(price, priceX0 + pw/2, top + (divY-top)/2 + 2);
-  /* 下方文字 */
-  const ls = fitFont(line2, right-left-20, Math.min(46, bot-divY-10), "bold");
+  if(showLogo && logoReady && H > W){
+    /* 直式標籤(如 30×40):logo 置中在上、價格在下,比較能利用高度 */
+    const lg = Math.min(Math.round((divY-top)*0.52), Math.round((right-left)*0.52));
+    ctx.drawImage(logoImg, Math.round((W-lg)/2), top+10, lg, lg);
+    const py0 = top + 10 + lg + 4;
+    const ps = fitFont(price, right-left-16, divY-py0-6, "bold");
+    ctx.font = `bold ${ps}px -apple-system,'PingFang TC','Noto Sans TC',sans-serif`;
+    ctx.fillText(price, W/2, py0 + (divY-py0)/2 + 1);
+  }else{
+    /* 橫式標籤(如 30×20):logo 在左、價格在右 */
+    let priceX0 = left+8, priceX1 = right-10;
+    if(showLogo && logoReady){
+      const lg = Math.min(divY - top - 14, Math.round((right-left)*0.38));
+      const ly = top + Math.round(((divY-top) - lg)/2);
+      ctx.drawImage(logoImg, left+7, ly, lg, lg);
+      priceX0 = left + 7 + lg + 6;
+    }
+    const pw = priceX1 - priceX0;
+    const ps = fitFont(price, pw, divY-top-12, "bold");
+    ctx.font = `bold ${ps}px -apple-system,'PingFang TC','Noto Sans TC',sans-serif`;
+    ctx.fillText(price, priceX0 + pw/2, top + (divY-top)/2 + 2);
+  }
+  /* 下方品名 */
+  const nameCap = H > W ? 72 : 46;
+  const ls = fitFont(line2, right-left-20, Math.min(nameCap, bot-divY-10), "bold");
   ctx.font = `bold ${ls}px -apple-system,'PingFang TC','Noto Sans TC',sans-serif`;
   ctx.fillText(line2, W/2, divY + (bot-divY)/2 + 1);
 }
@@ -293,6 +333,14 @@ async function connect(){
     setStatus("搜尋中…","busy");
     device = await pickDevice();
     log("選擇裝置: " + (device.name || device.id));
+    /* 依機台名稱自動切換標籤規格(仍可用下拉選單手動改) */
+    const dn = (device.name || "").toUpperCase();
+    const fmt = PRINTER_FORMATS.find(f => dn.includes(f.match));
+    if(fmt && (fmt.w !== LABEL_W_MM || fmt.h !== LABEL_H_MM)){
+      setLabelSize(fmt.w, fmt.h, `偵測到${fmt.name}(${device.name}),自動切換 ${fmt.w}×${fmt.h}mm`);
+    }else if(fmt){
+      log(`偵測到${fmt.name},標籤規格 ${fmt.w}×${fmt.h}mm`);
+    }
     try{
       device.addEventListener("gattserverdisconnected", () => {
         setStatus("已斷線"); $("btnPrint").disabled = true;
