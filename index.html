@@ -115,7 +115,7 @@
   </details>
 
   <div class="hint">
-    📱 <b>iPhone</b>:用 Bluefy 瀏覽器開啟本頁 → 按「搜尋並連接印表機」→ 選 XP-420B。<br>
+    📱 <b>iPhone</b>:用 Bluefy 瀏覽器開啟本頁 → 按「搜尋並連接印表機」→ 選 XP-420B(名稱後面帶 -W、-B 等字樣都正常,直接選即可)。<br>
     🤖 <b>Android</b>:用 Chrome 開啟本頁,步驟相同。<br>
     連線前請先確認印表機電源開啟,且手機藍牙已開。若原本的 XPBarcode App 還連著印表機,請先把該 App 完全關閉,以免佔住藍牙。
   </div>
@@ -135,12 +135,17 @@ const PRESETS = [
   { name:"桂馠木筷 230", price:"230", line2:"木筷五入組" },
 ];
 
-/* 常見標籤機 BLE 服務(Xprinter / 匯坤 / ISSC / Microchip 等) */
+/* 常見標籤機 BLE 服務(Xprinter / 匯坤 / ISSC / Microchip 等)
+   一律使用完整 128-bit 小寫字串:Bluefy 對數字縮寫 UUID 支援不完整 */
 const OPTIONAL_SERVICES = [
-  0xff00, 0xffe0, 0xff80, 0xfee7, 0xff10, 0x18f0,
+  "0000ff00-0000-1000-8000-00805f9b34fb",
+  "0000ffe0-0000-1000-8000-00805f9b34fb",
+  "0000ff80-0000-1000-8000-00805f9b34fb",
+  "0000fee7-0000-1000-8000-00805f9b34fb",
+  "0000ff10-0000-1000-8000-00805f9b34fb",
+  "000018f0-0000-1000-8000-00805f9b34fb",
   "49535343-fe7d-4ae5-8fa9-9fafd205e455",
   "e7810a71-73ae-499d-8c15-faa9aef0c3f2",
-  "0000ff00-0000-1000-8000-00805f9b34fb",
 ];
 /* 已知的寫入特徵值優先順序 */
 const PREFERRED_WRITE = [
@@ -240,23 +245,83 @@ $("minus").onclick = () => { const c=$("copies"); c.value = Math.max(1, +c.value
 $("plus").onclick  = () => { const c=$("copies"); c.value = Math.min(99, +c.value+1); };
 
 /* ================= 藍牙 ================= */
+function errText(e){
+  if(e == null) return "未知錯誤";
+  const parts = [];
+  if(e.name) parts.push(e.name);
+  if(e.message) parts.push(e.message);
+  if(!parts.length){
+    try{ parts.push(typeof e === "string" ? e : JSON.stringify(e)); }
+    catch(_){ parts.push(String(e)); }
+  }
+  return parts.join(": ");
+}
+
+async function pickDevice(){
+  /* 先列出所有裝置;若瀏覽器對這種寫法不支援,再退回用名稱 XP 開頭搜尋 */
+  const strategies = [
+    { desc:"列出所有裝置", opt:{ acceptAllDevices:true, optionalServices:OPTIONAL_SERVICES } },
+    { desc:"名稱 XP 開頭", opt:{ filters:[{namePrefix:"XP"}], optionalServices:OPTIONAL_SERVICES } },
+  ];
+  let lastErr = null;
+  for(const st of strategies){
+    try{
+      log("開啟裝置選擇(" + st.desc + ")…");
+      return await navigator.bluetooth.requestDevice(st.opt);
+    }catch(e){
+      lastErr = e;
+      log("搜尋失敗(" + st.desc + "): " + errText(e));
+      /* NotFoundError 多半是使用者取消或真的沒裝置,不再換策略重開視窗 */
+      if(e && e.name === "NotFoundError") throw e;
+    }
+  }
+  throw lastErr;
+}
+
+let connecting = false;
 async function connect(){
+  if(connecting) return;
+  connecting = true;
+  $("btnConnect").disabled = true;
   try{
     setStatus("搜尋中…","busy");
-    device = await navigator.bluetooth.requestDevice({
-      acceptAllDevices:true,
-      optionalServices: OPTIONAL_SERVICES
-    });
+    device = await pickDevice();
     log("選擇裝置: " + (device.name || device.id));
-    device.addEventListener("gattserverdisconnected", () => {
-      setStatus("已斷線"); $("btnPrint").disabled = true;
-      $("chWrap").style.display = "none";
-      log("裝置已斷線");
-    });
+    try{
+      device.addEventListener("gattserverdisconnected", () => {
+        setStatus("已斷線"); $("btnPrint").disabled = true;
+        $("chWrap").style.display = "none";
+        log("裝置已斷線");
+      });
+    }catch(e){ log("(無法監聽斷線事件: " + errText(e) + ")"); }
     setStatus("連線中…","busy");
-    const server = await device.gatt.connect();
+    let server = null;
+    for(let attempt=1; attempt<=3; attempt++){
+      try{ server = await device.gatt.connect(); break; }
+      catch(e){
+        log(`GATT 連線失敗(第 ${attempt}/3 次): ` + errText(e));
+        if(attempt === 3) throw e;
+        await new Promise(r=>setTimeout(r,600));
+      }
+    }
     log("GATT 已連線,列舉服務…");
-    const services = await server.getPrimaryServices();
+    await new Promise(r=>setTimeout(r,300)); /* 給印表機一點準備時間 */
+    let services = [];
+    try{
+      services = await server.getPrimaryServices();
+    }catch(e){
+      log("整批列舉服務失敗(" + errText(e) + "),改逐一嘗試已知服務…");
+    }
+    if(!services.length){
+      for(const su of OPTIONAL_SERVICES){
+        try{ services.push(await server.getPrimaryService(su)); }catch(_){ }
+      }
+    }
+    if(!services.length){
+      setStatus("讀不到任何服務");
+      log("⚠️ 連上了但讀不到任何 BLE 服務。請把印表機關機再開機後重試一次。");
+      return;
+    }
     writeChars = [];
     for(const s of services){
       let chars = [];
@@ -293,7 +358,10 @@ async function connect(){
     log("✅ 使用通道 " + activeChar.uuid.slice(4,8));
   }catch(e){
     setStatus("尚未連線");
-    log("連線失敗/取消: " + e.message);
+    log("連線失敗/取消: " + errText(e));
+  }finally{
+    connecting = false;
+    $("btnConnect").disabled = false;
   }
 }
 $("btnConnect").onclick = connect;
@@ -302,10 +370,13 @@ $("btnDisconnect").onclick = () => { if(device?.gatt?.connected) device.gatt.dis
 async function sendBytes(bytes){
   const chunk = Math.max(20, +$("chunk").value || 120);
   const delay = Math.max(0, +$("delay").value || 0);
-  const useNoResp = activeChar.properties.writeWithoutResponse;
+  /* 依瀏覽器實際支援的 API 挑寫入方式(Bluefy 舊版沒有 writeValueWithoutResponse) */
+  const useNoResp = activeChar.properties.writeWithoutResponse &&
+                    typeof activeChar.writeValueWithoutResponse === "function";
   for(let i=0; i<bytes.length; i+=chunk){
     const part = bytes.slice(i, i+chunk);
     if(useNoResp) await activeChar.writeValueWithoutResponse(part);
+    else if(typeof activeChar.writeValueWithResponse === "function") await activeChar.writeValueWithResponse(part);
     else await activeChar.writeValue(part);
     if(delay) await new Promise(r=>setTimeout(r,delay));
   }
@@ -361,7 +432,7 @@ $("btnPrint").onclick = async () => {
     await sendBytes(data);
     log(`✅ 傳送完成,耗時 ${((performance.now()-t0)/1000).toFixed(1)} 秒`);
   }catch(e){
-    log("❌ 列印失敗: " + e.message + "(可到進階設定調小每包位元組、加大間隔,或換傳輸通道)");
+    log("❌ 列印失敗: " + errText(e) + "(可到進階設定調小每包位元組、加大間隔,或換傳輸通道)");
   }finally{
     printing = false;
     btn.disabled = false; btn.textContent = "🖨️ 列印";
