@@ -262,7 +262,8 @@ function render(){
   ctx.lineWidth=3;
   const left = M+2, top = M+2, right = W-M-2, bot = H-M-2;
   roundRect(left, top, right-left, bot-top, 12); ctx.stroke();
-  const divY = Math.round(top + (bot-top)*0.6);
+  /* 分隔線固定在標籤正中央,上下兩區等高,其餘元素依此配置 */
+  const divY = Math.round((top + bot) / 2);
   ctx.beginPath(); ctx.moveTo(left+1,divY); ctx.lineTo(right-1,divY); ctx.stroke();
 
   const showLogo = $("showLogo").value === "1";
@@ -300,7 +301,7 @@ function render(){
     ctx.fillText(price, priceX0 + pw/2, top + (divY-top)/2 + 2);
   }
   /* 下方品名 */
-  const nameCap = H > W ? 72 : 46;
+  const nameCap = Math.round((bot-divY)*0.62);
   const ls = fitFont(line2, right-left-20, Math.min(nameCap, bot-divY-10), fw);
   ctx.font = `${fw} ${ls}px -apple-system,'PingFang TC','Noto Sans TC',sans-serif`;
   ctx.fillText(line2, W/2, divY + (bot-divY)/2 + 1);
