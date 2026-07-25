@@ -283,7 +283,13 @@ function render(){
     /* 橫式標籤(如 30×20):logo 在左、價格在右 */
     let priceX0 = left+8, priceX1 = right-10;
     if(showLogo && logoReady){
-      const lg = Math.min(divY - top - 14, Math.round((right-left)*0.38));
+      /* logo 與價格對等平衡:logo 高度 ≈ 價格字級 × 0.9。
+         logo 縮小會讓價格空間變大、字級跟著變,所以迭代求解(3 輪收斂) */
+      let lg = Math.round((divY-top)*0.55);
+      for(let i=0; i<3; i++){
+        const s = fitFont(price, (right-10) - (left+7+lg+6), divY-top-12, fw);
+        lg = Math.max(30, Math.min(Math.round(s*0.9), divY-top-14, Math.round((right-left)*0.38)));
+      }
       const ly = top + Math.round(((divY-top) - lg)/2);
       ctx.drawImage(logoImg, left+7, ly, lg, lg);
       priceX0 = left + 7 + lg + 6;
