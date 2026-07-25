@@ -82,7 +82,7 @@
     <label class="f">標籤規格(連線時依機台自動切換,也可手動選)</label>
     <select id="sizeSelect">
       <option value="30x20" selected>30×20mm(黑色機台)</option>
-      <option value="30x40">30×40mm(白色機台)</option>
+      <option value="40x30">40×30mm(白色機台)</option>
     </select>
     <label class="f">設定檔(點選套用,★ 為開頁自動載入的預設)</label>
     <div class="presets" id="profileChips"></div>
@@ -129,6 +129,7 @@
       <div><label class="f">列印方向</label><select id="direction"><option value="1" selected>正向 (1)</option><option value="0">反向 (0)</option></select></div>
       <div><label class="f">間隙 GAP (mm)</label><input type="number" id="gapmm" value="2" min="0" max="10"></div>
       <div><label class="f">安全邊界 (mm)</label><input type="number" id="marginmm" value="1.5" min="0" max="3" step="0.5"></div>
+      <div><label class="f">垂直位置微調 (mm)</label><input type="number" id="voffmm" value="0" min="-5" max="5" step="0.5"></div>
       <div><label class="f">BLE 每包位元組</label><input type="number" id="chunk" value="120" min="20" max="500"></div>
       <div><label class="f">每包間隔 (ms)</label><input type="number" id="delay" value="20" min="0" max="200"></div>
       <div><label class="f">黑白門檻 (0–255)</label><input type="number" id="thresh" value="160" min="50" max="230"></div>
@@ -139,7 +140,7 @@
 
   <div class="hint">
     📱 <b>iPhone</b>:用 Bluefy 瀏覽器開啟本頁 → 按「搜尋並連接印表機」→ 選 XP-420B。<br>
-    🖨️ 兩台機台:<b>XP-420B-B</b> 黑色機台(30×20mm)、<b>XP-420B-W</b> 白色機台(30×40mm),連上後標籤規格會自動切換,也可在「標籤規格」下拉選單手動選。<br>
+    🖨️ 兩台機台:<b>XP-420B-B</b> 黑色機台(30×20mm)、<b>XP-420B-W</b> 白色機台(40×30mm),連上後標籤規格會自動切換,也可在「標籤規格」下拉選單手動選。<br>
     🤖 <b>Android</b>:用 Chrome 開啟本頁,步驟相同。<br>
     連線前請先確認印表機電源開啟,且手機藍牙已開。若原本的 XPBarcode App 還連著印表機,請先把該 App 完全關閉,以免佔住藍牙。
   </div>
@@ -149,10 +150,10 @@
 "use strict";
 /* ================= 基本設定 ================= */
 const DPI = 203, DOTS_PER_MM = 8;
-/* 兩台機規格:黑色機台 30×20,白色機台 30×40。連線時依裝置名稱自動切換 */
+/* 兩台機規格:黑色機台 30×20,白色機台 40×30。連線時依裝置名稱自動切換 */
 const PRINTER_FORMATS = [
   { match:"-B", w:30, h:20, name:"黑色機台" },
-  { match:"-W", w:30, h:40, name:"白色機台" },
+  { match:"-W", w:40, h:30, name:"白色機台" },
 ];
 let LABEL_W_MM = 30, LABEL_H_MM = 20;
 let W = LABEL_W_MM * DOTS_PER_MM;   // 240
@@ -162,7 +163,7 @@ const LOGO_B64 = "iVBORw0KGgoAAAANSUhEUgAAAZAAAAGQCAAAAACl1GkQAAAJ/0lEQVR42u2dwX
 /* 設定檔:儲存在瀏覽器本機(localStorage),可存多組並指定一組為預設 */
 const PROFILE_KEY = "zmzk_profiles_v1";
 const SETTING_IDS = ["sizeSelect","price","line2","showLogo","fontWeight",
-                     "density","direction","gapmm","marginmm","chunk","delay","thresh"];
+                     "density","direction","gapmm","marginmm","voffmm","chunk","delay","thresh"];
 const SEED_PROFILES = {
   profiles: [
     { name:"混色筷子 450", settings:{ sizeSelect:"30x20", price:"450", line2:"混色筷子" } },
@@ -252,7 +253,11 @@ function render(){
   /* 安全邊界:整個版面往內縮,吸收印表機進紙的機械誤差,避免跑邊 */
   const mm = Math.min(3, Math.max(0, +($("marginmm") ? $("marginmm").value : 1.5) || 0));
   const M = Math.round(mm * DOTS_PER_MM);
+  /* 垂直位置微調:補償印表機進紙偏移,讓成品上下留白一致(正值往下、負值往上) */
+  const voff = Math.round(Math.min(5, Math.max(-5, +$("voffmm").value || 0)) * DOTS_PER_MM);
+  ctx.setTransform(1,0,0,1,0,0);
   ctx.fillStyle="#fff"; ctx.fillRect(0,0,W,H);
+  ctx.translate(0, voff);
   ctx.strokeStyle="#000"; ctx.fillStyle="#000";
   ctx.lineWidth=3;
   const left = M+2, top = M+2, right = W-M-2, bot = H-M-2;
@@ -293,14 +298,21 @@ function render(){
   const ls = fitFont(line2, right-left-20, Math.min(nameCap, bot-divY-10), fw);
   ctx.font = `${fw} ${ls}px -apple-system,'PingFang TC','Noto Sans TC',sans-serif`;
   ctx.fillText(line2, W/2, divY + (bot-divY)/2 + 1);
+  ctx.setTransform(1,0,0,1,0,0);
 }
-["price","line2","showLogo","fontWeight","marginmm"].forEach(id => $(id).addEventListener("input", render));
+["price","line2","showLogo","fontWeight","marginmm","voffmm"].forEach(id => $(id).addEventListener("input", render));
 
 /* ================= 設定檔 ================= */
 function loadStore(){
   try{
     const s = JSON.parse(localStorage.getItem(PROFILE_KEY));
-    if(s && Array.isArray(s.profiles)) return s;
+    if(s && Array.isArray(s.profiles)){
+      /* 舊版曾把白色機規格存成 30x40,修正為 40x30 */
+      s.profiles.forEach(p => {
+        if(p.settings && p.settings.sizeSelect === "30x40") p.settings.sizeSelect = "40x30";
+      });
+      return s;
+    }
   }catch(e){}
   return JSON.parse(JSON.stringify(SEED_PROFILES));
 }
